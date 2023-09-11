@@ -1,0 +1,14 @@
+{
+  "name": "generator-for-fun",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "tinybench": "^2.5.0"
+  }
+}

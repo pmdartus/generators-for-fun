@@ -7,3 +7,5 @@ It looks a lot like an `async` function, reads like a function that execute sync
 Observable or EventEmitter ==> Push new values to consumers.
 Iterator or Generator ==> Consumer pull new values. 
 
+`Array.from` is same performance that `for ... of` in the benchmark.
+

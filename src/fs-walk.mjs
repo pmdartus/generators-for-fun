@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { performance } from "node:perf_hooks";
+import { Bench } from "tinybench";
 
 function* syncGenWalkIter(dirname) {
   const queue = [dirname];
@@ -30,6 +30,28 @@ function* syncGenWalkIterWithTypes(dirname) {
       let isDirectory = dirent.isDirectory();
       if (!isDirectory && dirent.isSymbolicLink()) {
         isDirectory = fs.statSync(path).isDirectory();
+      }
+
+      if (isDirectory) {
+        queue.unshift(path);
+      } else {
+        yield path;
+      }
+    }
+  }
+}
+
+async function* asyncGenWalkIterWithTypes(dirname) {
+  const queue = [dirname];
+  let current;
+  while ((current = queue.shift())) {
+    const dirents = await fs.promises.readdir(current, { withFileTypes: true });
+    for (const dirent of dirents) {
+      const path = `${current}/${dirent.name}`;
+
+      let isDirectory = dirent.isDirectory();
+      if (!isDirectory && dirent.isSymbolicLink()) {
+        isDirectory = (await fs.promises.stat(path)).isDirectory();
       }
 
       if (isDirectory) {
@@ -89,51 +111,46 @@ async function* asyncGenWalkIter(dirname) {
 
 const DIRNAME = "/Users/p.dartus/code/github/salesforce/lwc";
 
-async function benchmark(name, fn) {
-  const start = performance.now();
-  const res = await fn();
-  const end = performance.now();
+const bench = new Bench();
 
-  console.log(name, end - start, res);
-}
-
-await benchmark("Sync generator", () => {
-  let counter = 0;
-  for (const path of syncGenWalk(DIRNAME)) {
-    counter++;
-  }
-  return counter;
+bench.addEventListener("cycle", (evt) => {
+  console.log(`Running test for ${evt.task.name}...`);
 });
 
-await benchmark("Sync generator iter", () => {
-  let counter = 0;
-  for (const path of syncGenWalkIter(DIRNAME)) {
-    counter++;
-  }
-  return counter;
-});
+bench
+  .add("Sync generator (recursive)", () => {
+    for (const _ of syncGenWalk(DIRNAME)) {
+    }
+  })
+  .add("Sync generator (iterative)", () => {
+    for (const _ of syncGenWalkIter(DIRNAME)) {
+    }
+  })
+  .add("Sync generator (iterative with types)", () => {
+    for (const _ of syncGenWalkIterWithTypes(DIRNAME)) {
+    }
+  })
+  .add("Async generator (recursive)", async () => {
+    for await (const _ of asyncGenWalk(DIRNAME)) {
+    }
+  })
+  .add("Async generator (iterative)", async () => {
+    for await (const _ of asyncGenWalkIter(DIRNAME)) {
+    }
+  })
+  .add("Async generator (iterative with types)", async () => {
+    for await (const _ of asyncGenWalkIterWithTypes(DIRNAME)) {}
+  });
 
-await benchmark("Sync generator iter with types", () => {
-  let counter = 0;
-  for (const path of syncGenWalkIterWithTypes(DIRNAME)) {
-    counter++;
-  }
-  return counter;
-});
+await bench.run();
 
-
-await benchmark("Async generator", async () => {
-  let counter = 0;
-  for await (const path of asyncGenWalk(DIRNAME)) {
-    counter++;
-  }
-  return counter;
-});
-
-await benchmark("Async generator iter", async () => {
-  let counter = 0;
-  for await (const path of asyncGenWalkIter(DIRNAME)) {
-    counter++;
-  }
-  return counter;
-});
+console.table(
+  bench.tasks.map((task) => {
+    const { name, result } = task;
+    return {
+      Name: name,
+      "Mean (ms)": result.mean.toFixed(2),
+      "Standard Deviation (ms)": result.sd.toFixed(2),
+    };
+  })
+);

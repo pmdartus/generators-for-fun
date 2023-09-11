@@ -5,4 +5,8 @@ class LinkedList {
     constructor() {
         this.#head = this.#tail = null;
     }
+
+    add() {
+        
+    }
 }
